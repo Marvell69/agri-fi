@@ -13,10 +13,12 @@ interface InvestmentFormProps {
 }
 
 interface InvestmentResponse {
-  id: string;
+  investment: {
+    id: string;
+    tokenAmount: number;
+    amountUsd: number;
+  };
   unsignedXdr: string;
-  tokenAmount: number;
-  amountUsd: number;
 }
 
 interface SuccessState {
@@ -86,6 +88,7 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({
         body: JSON.stringify({
           tradeDealId: dealId,
           tokenAmount: safeQuantity,
+          amountUsd: totalAmount,
         }),
       });
 
@@ -100,7 +103,7 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({
       const signedXdr = await signTransaction(investmentData.unsignedXdr);
 
       // Step 3: Submit signed transaction to backend
-      const submitResponse = await fetch(`/api/investments/${investmentData.id}/fund`, {
+      const submitResponse = await fetch(`/api/investments/${investmentData.investment.id}/fund`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
