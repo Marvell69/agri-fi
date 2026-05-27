@@ -11,13 +11,75 @@ import InvestmentSection from '@/components/InvestmentSection';
 export const dynamic = 'force-dynamic';
 export const revalidate = 60;
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string; locale: string };
+}): Promise<Metadata> {
   try {
     const deal = await getDealById(params.id);
     if (!deal) return { title: 'Deal Not Found | AgriFi' };
-    const title = `${deal.commodity.charAt(0).toUpperCase() + deal.commodity.slice(1)} — AgriFi`;
-    const description = `${deal.quantity} ${deal.quantity_unit} of ${deal.commodity}. Total value $${Number(deal.total_value).toLocaleString()}.`;
-    return { title, description };
+
+    const commodity =
+      deal.commodity.charAt(0).toUpperCase() + deal.commodity.slice(1);
+    const totalValue = Number(deal.total_value);
+    const totalInvested = Number(deal.total_invested);
+
+    const fundingPct =
+      totalValue > 0
+        ? Math.min(Math.round((totalInvested / totalValue) * 100), 100)
+        : 0;
+
+    // Estimated ROI: platform distributes 98% of deal value to investors.
+    const roi =
+      totalInvested > 0
+        ? ((totalValue * 0.98 - totalInvested) / totalInvested) * 100
+        : 0;
+    const roiLabel =
+      roi > 0 ? `+${roi.toFixed(1)}% target ROI` : 'Earn returns on delivery';
+
+    const title = `Invest in ${commodity} — $${totalValue.toLocaleString()} USD | AgriFi`;
+    const description =
+      `${Number(deal.quantity).toLocaleString()} ${deal.quantity_unit} of ${commodity}. ` +
+      `${fundingPct}% funded · ${roiLabel}. ` +
+      `Delivery by ${new Date(deal.delivery_date).toLocaleDateString('en', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })}.`;
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://agri-fi.app';
+    const pageUrl = `${appUrl}/marketplace/${deal.id}`;
+    const ogImage = `${appUrl}/og-default.png`;
+
+    return {
+      title,
+      description,
+      openGraph: {
+        type: 'website',
+        url: pageUrl,
+        siteName: 'AgriFi',
+        title,
+        description,
+        images: [
+          {
+            url: ogImage,
+            width: 1200,
+            height: 630,
+            alt: `${commodity} trade deal on AgriFi`,
+          },
+        ],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: [ogImage],
+      },
+      alternates: {
+        canonical: pageUrl,
+      },
+    };
   } catch {
     return { title: 'Trade Deal | AgriFi' };
   }
