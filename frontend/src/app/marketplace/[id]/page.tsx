@@ -8,8 +8,18 @@ import { ShipmentTimeline } from '@/components/ShipmentTimeline';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import InvestmentSection from '@/components/InvestmentSection';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 60;
+export const dynamic = 'force-static';
+export const dynamicParams = false;
+export const revalidate = false;
+
+export function generateStaticParams() {
+  const ids = (process.env.STATIC_MARKETPLACE_IDS || '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+
+  return ids.map((id) => ({ id }));
+}
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   try {
