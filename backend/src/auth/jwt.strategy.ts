@@ -11,6 +11,7 @@ export interface JwtPayload {
   email: string;
   role: string;
   tokenVersion?: number;
+  typ?: 'access' | 'refresh';
 }
 
 @Injectable()
@@ -27,6 +28,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<User> {
+    if (payload.typ === 'refresh') {
+      throw new UnauthorizedException(
+        'Refresh tokens cannot be used as access tokens.',
+      );
+    }
     const user = await this.userRepo.findOne({ where: { id: payload.sub } });
     if (!user) throw new UnauthorizedException();
     if ((payload.tokenVersion ?? 0) !== (user.tokenVersion ?? 0)) {

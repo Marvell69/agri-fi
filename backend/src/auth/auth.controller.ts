@@ -12,6 +12,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { WalletDto } from './dto/wallet.dto';
 import { KycDto } from './dto/kyc.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { User } from './entities/user.entity';
 
 interface AuthRequest extends Request {
@@ -47,11 +48,32 @@ export class AuthController {
     },
   })
   @ApiOperation({ summary: 'Authenticate and receive a JWT' })
-  @ApiResponse({ status: 200, description: 'Returns access_token JWT' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns access and refresh JWTs',
+  })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('refresh')
+  @Throttle({
+    default: {
+      limit: parseInt(process.env.RATE_LIMIT_LOGIN || '5'),
+      ttl: parseInt(process.env.RATE_LIMIT_TTL || '60000'),
+    },
+  })
+  @ApiOperation({ summary: 'Exchange a refresh token for a new access token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns new access and refresh tokens',
+  })
+  @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refresh(dto.refreshToken);
   }
 
   @Post('wallet')

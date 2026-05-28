@@ -15,6 +15,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { KycDto } from './dto/kyc.dto';
 import { QueueService } from '../queue/queue.service';
+import { JwtPayload } from './jwt.strategy';
 
 @Injectable()
 export class AuthService {
@@ -58,20 +59,75 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto): Promise<{ accessToken: string }> {
+  private accessTokenExpiresIn(): string {
+    return (
+      this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') ??
+      this.configService.get<string>('JWT_EXPIRES_IN', '7d')
+    );
+  }
+
+  private refreshTokenExpiresIn(): string {
+    return this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '7d');
+  }
+
+  private issueTokenPair(user: User): {
+    accessToken: string;
+    refreshToken: string;
+  } {
+    const base: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      tokenVersion: user.tokenVersion ?? 0,
+    };
+
+    return {
+      accessToken: this.jwtService.sign(
+        { ...base, typ: 'access' },
+        { expiresIn: this.accessTokenExpiresIn() },
+      ),
+      refreshToken: this.jwtService.sign(
+        { ...base, typ: 'refresh' },
+        { expiresIn: this.refreshTokenExpiresIn() },
+      ),
+    };
+  }
+
+  async login(
+    dto: LoginDto,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const user = await this.userRepo.findOne({ where: { email: dto.email } });
     if (!user) throw new UnauthorizedException('Invalid credentials.');
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Invalid credentials.');
 
-    const token = this.jwtService.sign({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-      tokenVersion: user.tokenVersion ?? 0,
-    });
-    return { accessToken: token };
+    return this.issueTokenPair(user);
+  }
+
+  async refresh(
+    refreshToken: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    let payload: JwtPayload;
+    try {
+      payload = this.jwtService.verify<JwtPayload>(refreshToken);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token.');
+    }
+
+    if (payload.typ !== 'refresh') {
+      throw new UnauthorizedException('Invalid refresh token.');
+    }
+
+    const user = await this.userRepo.findOne({ where: { id: payload.sub } });
+    if (!user)
+      throw new UnauthorizedException('Invalid or expired refresh token.');
+
+    if ((payload.tokenVersion ?? 0) !== (user.tokenVersion ?? 0)) {
+      throw new UnauthorizedException('Token no longer valid.');
+    }
+
+    return this.issueTokenPair(user);
   }
 
   async linkWallet(
@@ -243,12 +299,24 @@ export class AuthService {
     return { message: 'Logged out successfully.' };
   }
 
-  async listUsers(page = 1, limit = 100): Promise<{ users: Partial<User>[]; total: number }> {
+  async listUsers(
+    page = 1,
+    limit = 100,
+  ): Promise<{ users: Partial<User>[]; total: number }> {
     const [users, total] = await this.userRepo.findAndCount({
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
-      select: ['id', 'email', 'role', 'kycStatus', 'country', 'createdAt', 'walletAddress', 'isCompany'],
+      select: [
+        'id',
+        'email',
+        'role',
+        'kycStatus',
+        'country',
+        'createdAt',
+        'walletAddress',
+        'isCompany',
+      ],
     });
     return { users, total };
   }
