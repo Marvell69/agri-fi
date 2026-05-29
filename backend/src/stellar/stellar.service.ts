@@ -143,7 +143,7 @@ export class StellarService {
       .build();
 
     tx.sign(this.platformKeypair);
-    await this.server.submitTransaction(tx);
+    await this.submitWithRetry(tx);
 
     // Establish USDC trustline on the escrow account (skip if USDC issuer not configured)
     if (!this.usdcAsset.isNative()) {
@@ -163,7 +163,7 @@ export class StellarService {
         .build();
 
       trustlineTx.sign(escrowKeypair);
-      await this.server.submitTransaction(trustlineTx);
+      await this.submitWithRetry(trustlineTx);
     }
 
     this.logger.info(
@@ -224,7 +224,7 @@ export class StellarService {
       .build();
 
     fundIssuerTx.sign(this.platformKeypair, issuerKeypair);
-    await this.server.submitTransaction(fundIssuerTx);
+    await this.submitWithRetry(fundIssuerTx);
 
     const tradeAsset = new Asset(assetCode, issuerKeypair.publicKey());
 
@@ -246,7 +246,7 @@ export class StellarService {
       .build();
 
     trustlineTx.sign(escrowKeypair);
-    await this.server.submitTransaction(trustlineTx);
+    await this.submitWithRetry(trustlineTx);
 
     // Issuer mints tokens to escrow account
     const issuerAccount = await this.server.loadAccount(
@@ -268,7 +268,7 @@ export class StellarService {
       .build();
 
     mintTx.sign(issuerKeypair);
-    const mintResult = await this.server.submitTransaction(mintTx);
+    const mintResult = await this.submitWithRetry(mintTx);
 
     const txId = (mintResult as any).hash as string;
     this.logger.info(
@@ -329,7 +329,7 @@ export class StellarService {
 
     // Note: in production the investor signs this via their wallet (Freighter/Albedo)
     // For backend-initiated flows, we'd need the investor's secret — omitted here
-    const result = await this.server.submitTransaction(tx);
+    const result = await this.submitWithRetry(tx);
     const paymentTxId = (result as any).hash as string;
 
     // If escrow secret and asset info provided, transfer Trade_Tokens to investor
@@ -378,7 +378,7 @@ export class StellarService {
 
     tx.sign(escrowKeypair);
 
-    const result = await this.server.submitTransaction(tx);
+    const result = await this.submitWithRetry(tx);
     const txId = (result as any).hash as string;
     this.logger.info(
       {
@@ -541,7 +541,7 @@ export class StellarService {
       tx.sign(escrowKeypair);
 
       try {
-        const result = await this.server.submitTransaction(tx);
+        const result = await this.submitWithRetry(tx);
         txIds.push((result as any).hash as string);
       } catch (err: any) {
         this.logger.error(
@@ -585,7 +585,7 @@ export class StellarService {
       .build();
 
     tx.sign(signerKeypair);
-    const result = await this.server.submitTransaction(tx);
+    const result = await this.submitWithRetry(tx);
 
     const txId = (result as any).hash as string;
     return txId;
@@ -662,7 +662,7 @@ export class StellarService {
     tx.sign(keypair);
 
     try {
-      const result = await this.server.submitTransaction(tx);
+      const result = await this.submitWithRetry(tx);
       const txId = (result as any).hash as string;
       this.logger.info(
         { publicKey, destination, txId },
@@ -717,7 +717,7 @@ export class StellarService {
       .build();
 
     tx.sign(signerKeypair);
-    const result = await this.server.submitTransaction(tx);
+    const result = await this.submitWithRetry(tx);
     return (result as any).hash as string;
   }
 
@@ -1070,12 +1070,44 @@ export class StellarService {
   }
 
   /**
+   * Submits a transaction with exponential backoff retry for transient Horizon errors.
+   * Retries on HTTP 429, 503, 504, and network timeout errors.
+   * Waits 1s → 2s → 4s before each retry; throws after 3 failed attempts.
+   */
+  private async submitWithRetry(tx: any): Promise<any> {
+    const RETRYABLE = new Set([429, 503, 504]);
+    const MAX_RETRIES = 3;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        return await this.server.submitTransaction(tx);
+      } catch (err: any) {
+        const status: number | undefined = err?.response?.status;
+        const isTimeout =
+          err?.code === 'ECONNABORTED' || err?.message?.includes('timeout');
+        const isRetryable = (status !== undefined && RETRYABLE.has(status)) || isTimeout;
+
+        if (!isRetryable || attempt === MAX_RETRIES) {
+          throw err;
+        }
+
+        const delayMs = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
+        this.logger.warn(
+          { attempt, status, delayMs },
+          `Transient Horizon error (${status ?? 'timeout'}); retrying in ${delayMs}ms`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
+  /**
    * Submits a signed XDR transaction to the Stellar network.
    */
   async submitTransaction(signedXdr: string): Promise<any> {
     const tx = TransactionBuilder.fromXDR(signedXdr, this.networkPassphrase);
     try {
-      const result = await this.server.submitTransaction(tx);
+      const result = await this.submitWithRetry(tx);
       const txHash = (result as any).hash as string;
       this.logger.info({ txId: txHash }, 'Transaction submitted successfully');
       await this.saveLog({
@@ -1147,7 +1179,7 @@ export class StellarService {
     tx.sign(issuerKeypair);
 
     try {
-      await this.server.submitTransaction(tx);
+      await this.submitWithRetry(tx);
       this.logger.info(
         { assetCode, issuerPublicKey, holdersCount: holders.length },
         'Tokens clawed back successfully',
