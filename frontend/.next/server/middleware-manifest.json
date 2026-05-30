@@ -1,6 +1,82 @@
 {
   "version": 3,
-  "middleware": {},
-  "functions": {},
-  "sortedMiddleware": []
+  "middleware": {
+    "/": {
+      "files": [
+        "server/edge-runtime-webpack.js",
+        "server/src/middleware.js"
+      ],
+      "name": "src/middleware",
+      "page": "/",
+      "matchers": [
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?(?:\\/(\\/?index|\\/?index\\.json))?[\\/#\\?]?$",
+          "originalSource": "/"
+        },
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?(?:\\/(en|fr|pt|sw))(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(.json)?[\\/#\\?]?$",
+          "originalSource": "/(en|fr|pt|sw)/:path*"
+        },
+        {
+          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?(?:\\/((?!api|_next|_static|_vercel|[\\w-]+\\.\\w+).*))(.json)?[\\/#\\?]?$",
+          "originalSource": "/((?!api|_next|_static|_vercel|[\\w-]+\\.\\w+).*)"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "Wx9zfPAVmsDw0WBW46OG5",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "8tWkpe4pboUawdmRtsOfV6Ha5G5+pXap/NSncghR4Ds=",
+        "__NEXT_PREVIEW_MODE_ID": "6988e34c0b62c845894c3fb7c9b58756",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "f9d0fb917c3f9306ece29445c07894c9c4de796ee42049230abff79db79ebaeb",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "b76c1b18e534e60daa02377619deae283bd6d7df5de6c2551510ffc9b025d62e"
+      }
+    }
+  },
+  "functions": {
+    "/api/trade-deals/[id]/og/route": {
+      "files": [
+        "server/middleware-build-manifest.js",
+        "server/middleware-react-loadable-manifest.js",
+        "server/next-font-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "server/edge-runtime-webpack.js",
+        "server/app/api/trade-deals/[id]/og/route.js"
+      ],
+      "name": "app/api/trade-deals/[id]/og/route",
+      "page": "/api/trade-deals/[id]/og/route",
+      "matchers": [
+        {
+          "regexp": "^/api/trade\\-deals/(?<id>[^/]+?)/og$",
+          "originalSource": "/api/trade-deals/[id]/og"
+        }
+      ],
+      "wasm": [
+        {
+          "name": "wasm_77d9faebf7af9e421806970ce10a58e9d83116d7",
+          "filePath": "server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm"
+        },
+        {
+          "name": "wasm_ef4866ecae192fd87727067cf2c0c0cf9fb8b020",
+          "filePath": "server/edge-chunks/wasm_ef4866ecae192fd87727067cf2c0c0cf9fb8b020.wasm"
+        }
+      ],
+      "assets": [
+        {
+          "name": "noto-sans-v27-latin-regular.5dda3fca77107598.ttf",
+          "filePath": "server/edge-chunks/asset_noto-sans-v27-latin-regular.5dda3fca77107598.ttf"
+        }
+      ],
+      "env": {
+        "__NEXT_BUILD_ID": "Wx9zfPAVmsDw0WBW46OG5",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "8tWkpe4pboUawdmRtsOfV6Ha5G5+pXap/NSncghR4Ds=",
+        "__NEXT_PREVIEW_MODE_ID": "6988e34c0b62c845894c3fb7c9b58756",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "f9d0fb917c3f9306ece29445c07894c9c4de796ee42049230abff79db79ebaeb",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "b76c1b18e534e60daa02377619deae283bd6d7df5de6c2551510ffc9b025d62e"
+      }
+    }
+  },
+  "sortedMiddleware": [
+    "/"
+  ]
 }

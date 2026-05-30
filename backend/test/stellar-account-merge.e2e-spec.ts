@@ -8,6 +8,13 @@ import { Keypair, Horizon } from '@stellar/stellar-sdk';
 import axios from 'axios';
 
 describe('Stellar Account Merge (e2e)', () => {
+  const STELLAR_ENABLED = !!process.env.STELLAR_PLATFORM_SECRET;
+
+  if (!STELLAR_ENABLED) {
+    it.skip('skipped — STELLAR_PLATFORM_SECRET not configured', () => {});
+    return;
+  }
+
   let stellarService: StellarService;
 
   beforeAll(async () => {
@@ -49,9 +56,9 @@ describe('Stellar Account Merge (e2e)', () => {
     stellarService = moduleFixture.get<StellarService>(StellarService);
   });
 
-  it('should create temporary keypair on testnet, fund it, and merge it to destination', async () => {
-    jest.setTimeout(60000); // 60 seconds
+  jest.setTimeout(60000); // 60 seconds for testnet network calls
 
+  it('should create temporary keypair on testnet, fund it, and merge it to destination', async () => {
     // 1. Create temporary keypairs
     const sourceKeypair = Keypair.random();
     const destKeypair = Keypair.random();
