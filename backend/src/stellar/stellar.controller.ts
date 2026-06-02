@@ -112,4 +112,59 @@ export class StellarController {
     const result = await this.stellarService.submitTransaction(signedXdr);
     return { hash: result?.hash ?? (result as any)?.id, success: true };
   }
+
+  /**
+   * Executes a clawback operation for a specific asset and investor.
+   * Only accessible by admin users.
+   */
+  @Post('clawback')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Execute a clawback operation for an asset' })
+  @ApiBody({
+    schema: {
+      properties: {
+        assetCode: { type: 'string' },
+        issuerPublicKey: { type: 'string' },
+        issuerSecret: { type: 'string' },
+        targetWallet: { type: 'string' },
+        amount: { type: 'string' },
+      },
+      required: ['assetCode', 'issuerPublicKey', 'issuerSecret', 'targetWallet', 'amount'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Clawback executed successfully' })
+  @ApiResponse({ status: 400, description: 'Missing required parameters' })
+  @ApiResponse({ status: 403, description: 'Forbidden: Admins only' })
+  async executeClawback(
+    @Body('assetCode') assetCode: string,
+    @Body('issuerPublicKey') issuerPublicKey: string,
+    @Body('issuerSecret') issuerSecret: string,
+    @Body('targetWallet') targetWallet: string,
+    @Body('amount') amount: string,
+    @Req() req: Request,
+  ) {
+    const caller = req.user as User;
+    if (caller.role !== 'admin') {
+      throw new HttpException('Only admins can execute clawbacks', HttpStatus.FORBIDDEN);
+    }
+
+    if (!assetCode || !issuerPublicKey || !issuerSecret || !targetWallet || !amount) {
+      throw new HttpException('Missing required parameters', HttpStatus.BAD_REQUEST);
+    }
+
+    try {
+      await this.stellarService.clawbackTokens(
+        assetCode,
+        issuerPublicKey,
+        issuerSecret,
+        [{ walletAddress: targetWallet, tokenAmount: parseFloat(amount) }]
+      );
+      return { success: true };
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || 'Clawback failed',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
 }
