@@ -7,10 +7,13 @@ import { TransactionLog } from './entities/transaction-log.entity';
 import { PricesService, PRICE_REDIS_CLIENT } from './prices.service';
 import { createClient } from 'redis';
 import { ConfigService } from '@nestjs/config';
+import { StellarHistory } from './entities/stellar-history.entity';
+import { StellarArchiverService } from './stellar-archiver.service';
+import { StellarMonitorService } from './stellar-monitor.service';
 
 @Global()
 @Module({
-  imports: [ConfigModule, TypeOrmModule.forFeature([TransactionLog])],
+  imports: [ConfigModule, TypeOrmModule.forFeature([TransactionLog, StellarHistory])],
   controllers: [StellarController],
   providers: [
     StellarService,
@@ -30,5 +33,7 @@ import { ConfigService } from '@nestjs/config';
     },
   ],
   exports: [StellarService, PricesService],
+  providers: [StellarService, StellarArchiverService, StellarMonitorService],
+  exports: [StellarService],
 })
 export class StellarModule {}

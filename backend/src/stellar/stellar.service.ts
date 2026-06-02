@@ -605,6 +605,16 @@ export class StellarService {
     const keypair = Keypair.fromSecret(secretKey);
     const account = await this.server.loadAccount(publicKey);
 
+    const assetsWithBalance = account.balances
+      .filter((b) => b.asset_type !== 'native' && parseFloat(b.balance) > 0)
+      .map((b: any) => b.asset_code || b.asset_type);
+
+    if (assetsWithBalance.length > 0) {
+      throw new Error(
+        `Cannot merge account: holds positive balance of ${assetsWithBalance.join(', ')}`,
+      );
+    }
+
     const txBuilder = new TransactionBuilder(account, {
       fee: BASE_FEE,
       networkPassphrase: this.networkPassphrase,
@@ -619,24 +629,6 @@ export class StellarService {
             : undefined;
 
         if (asset) {
-          const balanceAmount = parseFloat(balance.balance);
-          if (balanceAmount > 0) {
-            // Send USDC back to destination (platform); burn custom tokens by sending to issuer
-            const target =
-              asset.getCode() === this.usdcAsset.getCode() &&
-              asset.getIssuer() === this.usdcAsset.getIssuer()
-                ? destination
-                : asset.getIssuer();
-
-            txBuilder.addOperation(
-              Operation.payment({
-                destination: target,
-                asset,
-                amount: balance.balance,
-              }),
-            );
-          }
-
           // Remove trustline
           txBuilder.addOperation(
             Operation.changeTrust({
@@ -1205,6 +1197,11 @@ export class StellarService {
   ): Promise<void> {
     const issuerKeypair = Keypair.fromSecret(issuerSecret);
     const issuerAccount = await this.server.loadAccount(issuerPublicKey);
+    
+    if (!issuerAccount.flags.auth_clawback_enabled) {
+      throw new Error('Token does not have clawback enabled');
+    }
+
     const tradeAsset = createAsset(assetCode, issuerPublicKey);
 
     const txBuilder = new TransactionBuilder(issuerAccount, {
