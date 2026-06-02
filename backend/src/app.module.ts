@@ -23,12 +23,14 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { SorobanModule } from './soroban/soroban.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { validateEnvironment } from './config/env.validation';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
     // Register ClsModule globally — no auto-mount; we mount manually below
     // to guarantee ordering: ClsMiddleware runs before CorrelationIdMiddleware
     ClsModule.forRoot({ global: true }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
       {
         ttl: parseInt(process.env.RATE_LIMIT_TTL || '60000'),
