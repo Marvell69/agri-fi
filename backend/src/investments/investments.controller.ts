@@ -160,12 +160,21 @@ export class InvestmentsController {
   @ApiResponse({ status: 200, description: 'Investment confirmed on-chain' })
   @ApiResponse({ status: 400, description: 'Invalid transaction' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Only the investment owner can confirm this investment',
+  })
   @ApiResponse({ status: 404, description: 'Investment not found' })
   async confirmInvestment(
+    @Request() req: { user: { id: string } },
     @Param('id') id: string,
     @Body('stellarTxId') stellarTxId: string,
   ) {
-    return this.investmentsService.confirmInvestment(id, stellarTxId);
+    return this.investmentsService.confirmInvestment(
+      req.user.id,
+      id,
+      stellarTxId,
+    );
   }
 
   @Get('trade-deal/:tradeDealId')

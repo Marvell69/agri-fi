@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
+  ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -25,6 +27,8 @@ export interface CreateInvestmentResult {
   investment: Investment;
   unsignedXdr: string;
 }
+
+const STELLAR_TX_HASH_PATTERN = /^[a-f0-9]{64}$/i;
 
 @Injectable()
 export class InvestmentsService {
@@ -158,9 +162,18 @@ export class InvestmentsService {
   }
 
   async confirmInvestment(
+    investorId: string,
     investmentId: string,
     stellarTxId: string,
   ): Promise<Investment> {
+    if (!STELLAR_TX_HASH_PATTERN.test(stellarTxId)) {
+      throw new BadRequestException({
+        code: 'INVALID_STELLAR_TX_ID',
+        message:
+          'stellarTxId must be a 64-character hexadecimal Stellar transaction hash.',
+      });
+    }
+
     const investment = await this.investmentRepo.findOne({
       where: { id: investmentId },
       relations: ['tradeDeal'],
@@ -168,6 +181,13 @@ export class InvestmentsService {
 
     if (!investment) {
       throw new NotFoundException('Investment not found.');
+    }
+
+    if (investment.investorId !== investorId) {
+      throw new ForbiddenException({
+        code: 'NOT_INVESTMENT_OWNER',
+        message: 'Only the investment owner can confirm this investment.',
+      });
     }
 
     if (investment.status !== InvestmentStatus.PENDING) {
@@ -291,7 +311,11 @@ export class InvestmentsService {
       investment.tokenAmount,
     );
 
-    await this.confirmInvestment(investmentId, stellarTxId);
+    await this.confirmInvestment(
+      investment.investorId,
+      investmentId,
+      stellarTxId,
+    );
 
     return { status: 'confirmed', investmentId, stellarTxId };
   }
