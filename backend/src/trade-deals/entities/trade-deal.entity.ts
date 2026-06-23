@@ -8,6 +8,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
+import { Exclude } from 'class-transformer';
 import { User } from '../../auth/entities/user.entity';
 import { Document } from './document.entity';
 import { Investment } from '../../investments/entities/investment.entity';
@@ -122,12 +123,8 @@ export class TradeDeal {
   })
   escrowPublicKey: string | null;
 
+  @Exclude()
   @Column({ name: 'escrow_secret_key', nullable: true })
-  @ApiProperty({
-    description: 'Stellar escrow account secret key (encrypted)',
-    nullable: true,
-    example: 'encrypted:...',
-  })
   escrowSecretKey: string | null;
 
   @Column({ name: 'issuer_public_key', nullable: true })
@@ -138,12 +135,8 @@ export class TradeDeal {
   })
   issuerPublicKey: string | null;
 
+  @Exclude()
   @Column({ name: 'issuer_secret_key', nullable: true })
-  @ApiProperty({
-    description: 'Stellar token issuer secret key (encrypted)',
-    nullable: true,
-    example: 'encrypted:...',
-  })
   issuerSecretKey: string | null;
 
   @Column({
