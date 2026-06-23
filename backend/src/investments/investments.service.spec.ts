@@ -4,6 +4,8 @@ import { DataSource } from 'typeorm';
 import {
   NotFoundException,
   UnprocessableEntityException,
+  ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InvestmentsService } from './investments.service';
 import { Investment, InvestmentStatus } from './entities/investment.entity';
@@ -12,6 +14,9 @@ import { User } from '../auth/entities/user.entity';
 import { StellarService } from '../stellar/stellar.service';
 import { QueueService } from '../queue/queue.service';
 import { CreateInvestmentDto } from './dto/create-investment.dto';
+
+const VALID_STELLAR_TX_ID =
+  'a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890';
 
 const mockTradeDeal = (): TradeDeal => ({
   id: 'deal-1',
@@ -236,13 +241,17 @@ describe('InvestmentsService', () => {
       investmentRepo.update.mockResolvedValue({ affected: 1 });
       tradeDealRepo.update.mockResolvedValue({ affected: 1 });
 
-      await service.confirmInvestment('inv-1', 'stellar-tx-123');
+      await service.confirmInvestment(
+        'investor-1',
+        'inv-1',
+        VALID_STELLAR_TX_ID,
+      );
 
       expect(investmentRepo.update).toHaveBeenCalledWith(
         'inv-1',
         expect.objectContaining({
           status: InvestmentStatus.CONFIRMED,
-          stellarTxId: 'stellar-tx-123',
+          stellarTxId: VALID_STELLAR_TX_ID,
         }),
       );
       expect(tradeDealRepo.update).toHaveBeenCalledWith('deal-1', {
@@ -262,7 +271,11 @@ describe('InvestmentsService', () => {
       investmentRepo.update.mockResolvedValue({ affected: 1 });
       tradeDealRepo.update.mockResolvedValue({ affected: 1 });
 
-      await service.confirmInvestment('inv-1', 'stellar-tx-123');
+      await service.confirmInvestment(
+        'investor-1',
+        'inv-1',
+        VALID_STELLAR_TX_ID,
+      );
 
       expect(tradeDealRepo.update).toHaveBeenCalledWith('deal-1', {
         totalInvested: 1000,
@@ -282,8 +295,38 @@ describe('InvestmentsService', () => {
       investmentRepo.findOne.mockResolvedValue(investment);
 
       await expect(
-        service.confirmInvestment('inv-1', 'stellar-tx-123'),
+        service.confirmInvestment(
+          'investor-1',
+          'inv-1',
+          VALID_STELLAR_TX_ID,
+        ),
       ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('throws ForbiddenException when caller is not the investment owner', async () => {
+      const investment = {
+        ...mockInvestment(),
+        status: InvestmentStatus.PENDING,
+        tradeDeal: mockTradeDeal(),
+      };
+
+      investmentRepo.findOne.mockResolvedValue(investment);
+
+      await expect(
+        service.confirmInvestment(
+          'other-investor',
+          'inv-1',
+          VALID_STELLAR_TX_ID,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws BadRequestException for invalid stellarTxId format', async () => {
+      await expect(
+        service.confirmInvestment('investor-1', 'inv-1', 'stellar-tx-123'),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(investmentRepo.findOne).not.toHaveBeenCalled();
     });
   });
 
@@ -299,7 +342,7 @@ describe('InvestmentsService', () => {
       investmentRepo.find.mockResolvedValue([investment]);
       investmentRepo.update.mockResolvedValue({ affected: 1 });
       tradeDealRepo.update.mockResolvedValue({ affected: 1 });
-      stellarService.fundEscrow.mockResolvedValue('stellar-tx-456');
+      stellarService.fundEscrow.mockResolvedValue(VALID_STELLAR_TX_ID);
 
       const result = await service.fundEscrow(
         'inv-1',
@@ -314,7 +357,7 @@ describe('InvestmentsService', () => {
         'COFFEE001',
         100,
       );
-      expect(result.stellarTxId).toBe('stellar-tx-456');
+      expect(result.stellarTxId).toBe(VALID_STELLAR_TX_ID);
       expect(result.status).toBe('confirmed');
     });
 
