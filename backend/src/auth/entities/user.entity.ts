@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
+import { Exclude } from 'class-transformer';
 
 export type UserRole =
   | 'farmer'
@@ -36,11 +37,8 @@ export class User {
   })
   email: string;
 
+  @Exclude()
   @Column({ name: 'password_hash' })
-  @ApiProperty({
-    description: 'Hashed password (bcrypt)',
-    example: '$2b$10$...',
-  })
   passwordHash: string;
 
   @Column()
